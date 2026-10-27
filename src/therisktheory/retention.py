@@ -1,3 +1,6 @@
+git add .
+git commit -m "FEEDBACK"
+    
 """Risk retention, division, and inflation adjustment models in actuarial science."""
 
 from __future__ import annotations
