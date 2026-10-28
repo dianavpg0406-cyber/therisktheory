@@ -1,18 +1,20 @@
 """Example script demonstrating De Finetti comparative analysis and elementary insurance."""
 
 import numpy as np
-from therisktheory.de_finetti_comparison import (
+from therisktheory.finetti_ruin.de_finetti_comparison import (
     elementary_insurance_case,
     compare_classical_de_finetti,
 )
 
+
 def main() -> None:
-    # 1. Elementary insurance case evaluation
+    # 1. Elementary insurance case evaluation with sum insured S
     initial_capital = 1000.0
     premium = 200.0
     claim_prob = 0.15
+    claim_amount = 500.0
     
-    terminal_pos = elementary_insurance_case(initial_capital, premium, claim_prob)
+    terminal_pos = elementary_insurance_case(initial_capital, premium, claim_prob, claim_amount)
     print(f"Elementary Insurance Terminal Position: {terminal_pos}")
 
     # 2. Comparative analysis between classical and De Finetti ruin probabilities
@@ -21,6 +23,7 @@ def main() -> None:
     
     deviations = compare_classical_de_finetti(classical_ruin, de_finetti_ruin)
     print(f"Ruin Probability Absolute Deviations: {deviations}")
+
 
 if __name__ == "__main__":
     main()
