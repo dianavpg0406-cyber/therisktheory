@@ -5,7 +5,7 @@ Applications of Bruno de Finetti's risk and game framework to elementary insuran
 
 ## Model Definitions & Hypotheses
 - **Elementary Insurance Case**: Formulates the insurance exchange under De Finetti's subjective probability and elementary game representations, contrasting utility-based approaches with collective risk surplus processes:
-  $$\text{Terminal Position} = U_0 + P - (p \times P)$$
+  $$\text{Terminal Position} = U_0 + P - (p \times S)$$
 - **Classical vs. De Finetti Comparison**: Analyzes differences in ruin probabilities, reserve safety loadings, and capital requirements between classical Cramér-Lundberg formulations and De Finetti's discrete game models:
   $$\text{Deviation} = |\Pr(\text{Ruin}_{\text{Classical}}) - \Pr(\text{Ruin}_{\text{De Finetti}})|$$
 
