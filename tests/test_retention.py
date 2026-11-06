@@ -1,88 +1,68 @@
-"""Risk retention, retention capacity, and inflation adjustment functions.
-Reference:
-    Beard, R. E., Pentikäinen, T., and Pesonen, E. (1984). Risk Theory.
-    Panjer, H. H. and Willmot, G. E. (1992). Insurance Risk Models.
-"""
+"""Unit tests for risk retention, division, and inflation adjustment models."""
 from __future__ import annotations
 
-from typing import Any
 import numpy as np
-from numpy.typing import ArrayLike, NDArray
+import pytest
 
-from therisktheory import _validation
+from therisktheory.retention import (
+    retained_loss,
+    retention_capacity,
+    inflate_losses,
+    deflate_losses,
+)
 
 
-def retained_loss(
-    loss: ArrayLike,
-    retention_limit: float
-) -> NDArray[np.float64]:
-    """Calculate the retained loss by an insurer given a retention limit."""
-    if isinstance(loss, (str, bytes)):
-        raise TypeError("Loss input cannot be a string.")
+def test_retained_loss_boundaries() -> None:
+    """Pruebas de frontera y valores estándar para la retención de siniestros."""
+    assert retained_loss(0.0, 1000.0) == 0.0
+    assert retained_loss(1500.0, 1000.0) == 1000.0
+    assert retained_loss(500.0, 1000.0) == 500.0
     
-    loss_arr = _validation.validate_numeric_array(loss)
-    
-    if not isinstance(retention_limit, (int, float, np.number)):
-        raise TypeError("Retention limit must be numeric.")
-    if retention_limit < 0:
-        raise ValueError("Retention limit must be non-negative.")
-    if np.any(loss_arr < 0):
-        raise ValueError("Loss amounts cannot be negative.")
+    # Verificación vectorizada con NumPy
+    losses = np.array([200.0, 1500.0])
+    res = retained_loss(losses, 1000.0)
+    np.testing.assert_allclose(res, [200.0, 1000.0])
+
+
+def test_retention_capacity() -> None:
+    """Prueba del cálculo de capacidad máxima de retención financiera."""
+    assert retention_capacity(1000.0, 0.25) == 250.0
+
+
+def test_inflation_deflation_inversion() -> None:
+    """Demostración formal de inversión y reversibilidad entre inflación y deflación."""
+    base = 1000.0
+    rate = 0.05
+    periods = 3
+    inflated = inflate_losses(base, rate, periods)
+    deflated = deflate_losses(inflated, rate, periods)
+    np.testing.assert_allclose(deflated, base)
+
+
+def test_inflation_edge_cases() -> None:
+    """Prueba de casos límite y división por cero en deflate_losses (tasa -1 con períodos positivos)."""
+    with pytest.raises(ValueError, match="Division by zero"):
+        deflate_losses(100.0, -1.0, periods=2)
+
+
+def test_invalid_types_and_values() -> None:
+    """Pruebas de manejo de excepciones para NaN, infinitos, tipos no numéricos y valores negativos."""
+    # Tipos incorrectos y NaN / Inf
+    with pytest.raises(TypeError):
+        retained_loss("100.0", 500.0)
+    with pytest.raises(ValueError):
+        retained_loss(np.nan, 500.0)
+    with pytest.raises(ValueError):
+        retained_loss(float('inf'), 500.0)
         
-    return np.minimum(loss_arr, float(retention_limit))
-
-
-def retention_capacity(
-    surplus: float,
-    maximum_retention_ratio: float
-) -> float:
-    """Determine the financial retention capacity based on insurer surplus."""
-    if not isinstance(surplus, (int, float, np.number)) or not isinstance(maximum_retention_ratio, (int, float, np.number)):
-        raise TypeError("Surplus and retention ratio must be numeric.")
-    if surplus < 0 or not (0.0 <= maximum_retention_ratio <= 1.0):
-        raise ValueError("Invalid surplus or retention ratio.")
+    # Pérdidas o límites negativos
+    with pytest.raises(ValueError):
+        retained_loss(-50.0, 500.0)
+    with pytest.raises(ValueError):
+        retention_capacity(1000.0, 1.5)  # Ratio mayor a 1.0 (100%)
         
-    return float(surplus * maximum_retention_ratio)
-
-
-def inflate_losses(
-    loss: ArrayLike,
-    inflation_rate: float,
-    periods: int = 1
-) -> NDArray[np.float64]:
-    """Project the impact of inflation on risk losses over time."""
-    if isinstance(loss, (str, bytes)):
-        raise TypeError("Loss input cannot be a string.")
-    loss_arr = _validation.validate_numeric_array(loss)
-    
-    if not isinstance(inflation_rate, (int, float, np.number)):
-        raise TypeError("Inflation rate must be numeric.")
-    if not isinstance(periods, int) and not (isinstance(periods, np.number) and np.issubdtype(type(periods), np.integer)):
-        raise TypeError("Periods must be an integer.")
-    if inflation_rate < -1.0 or periods < 0:
-        raise ValueError("Invalid inflation rate or periods.")
-        
-    return loss_arr * ((1.0 + float(inflation_rate)) ** int(periods))
-
-
-def deflate_losses(
-    inflated_loss: ArrayLike,
-    inflation_rate: float,
-    periods: int = 1
-) -> NDArray[np.float64]:
-    """Discount the effect of inflation to bring losses back to present value."""
-    if isinstance(inflated_loss, (str, bytes)):
-        raise TypeError("Loss input cannot be a string.")
-    loss_arr = _validation.validate_numeric_array(inflated_loss)
-    
-    if not isinstance(inflation_rate, (int, float, np.number)):
-        raise TypeError("Inflation rate must be numeric.")
-    if not isinstance(periods, int) and not (isinstance(periods, np.number) and np.issubdtype(type(periods), np.integer)):
-        raise TypeError("Periods must be an integer.")
-        
-    if inflation_rate == -1.0 and periods > 0:
-        raise ValueError("Division by zero: inflation rate cannot be -1.0 with positive periods.")
-    if inflation_rate < -1.0 or periods < 0:
-        raise ValueError("Invalid inflation rate or periods.")
-        
-    return loss_arr / ((1.0 + float(inflation_rate)) ** int(periods))
+    # Tasas de inflación inválidas o períodos no enteros
+    with pytest.raises(ValueError):
+        inflate_losses(100.0, -1.5)
+    with pytest.raises(TypeError):
+        inflate_losses(100.0, 0.05, periods=1.5)  # Período fraccionario no entero
