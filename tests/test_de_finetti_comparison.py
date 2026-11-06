@@ -1,4 +1,6 @@
 """Test module for De Finetti comparison and elementary insurance case."""
+from __future__ import annotations
+
 import numpy as np
 import pytest
 
@@ -11,7 +13,7 @@ from therisktheory.finetti_ruin.de_finetti_comparison import (
 
 def test_elementary_insurance_case() -> None:
     """Test standard and boundary values for elementary insurance."""
-    # Scalar inputs matching professor's reviewed case
+    # Scalar inputs matching Prof. Pitta's reviewed case (100 + 10 - 0.25 * 40 = 100)
     res_scalar = elementary_insurance_case(100.0, 10.0, 0.25, 40.0)
     assert res_scalar == pytest.approx(100.0)
 
