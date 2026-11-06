@@ -1,6 +1,11 @@
-"""Comparative analysis between classical risk theory and De Finetti's framework."""
+"""Comparative analysis between classical risk theory and De Finetti's framework.
 
+Reference:
+    De Finetti, B. (1940). Il rischio nel giuoco e nelle assicurazioni.
+    Beard, R. E., Pentikäinen, T., and Pesonen, E. (1984). Risk Theory.
+"""
 from __future__ import annotations
+
 import numpy as np
 import numpy.typing as npt
 
@@ -40,7 +45,9 @@ def elementary_insurance_case(
         raise ValueError("Inputs must contain only finite values.")
 
     if np.any(cap_arr < 0) or np.any(prem_arr < 0) or np.any(claim_arr < 0):
-        raise ValueError("Initial capital, premium, and claim amount must be non-negative.")
+        raise ValueError(
+            "Initial capital, premium, and claim amount must be non-negative."
+        )
 
     if np.any(prob_arr < 0.0) or np.any(prob_arr > 1.0):
         raise ValueError("Claim probability must be bounded between 0.0 and 1.0.")
@@ -74,3 +81,54 @@ def compare_classical_de_finetti(
         raise ValueError("Probabilities must be bounded between 0.0 and 1.0.")
 
     return np.abs(c_arr - df_arr)
+
+
+def benchmark_ruin_models(
+    initial_capital: float,
+    lambda_rate: float,
+    claim_mean: float,
+    safety_loading: float,
+    horizon_periods: int = 1,
+) -> dict[str, npt.NDArray[np.float64]]:
+    """Performs a reproducible benchmark deriving classical (Cramér-Lundberg asymptotic/diffusion)
+
+    and De Finetti discrete game ruin probabilities under identical risk metrics.
+
+    Args:
+        initial_capital: Starting surplus U_0.
+        lambda_rate: Poisson claim arrival intensity.
+        claim_mean: Expected single claim severity.
+        safety_loading: Relative safety loading coefficient (theta).
+        horizon_periods: Discrete steps for De Finetti evaluation.
+
+    Returns:
+        Dictionary containing classical estimates, De Finetti discrete estimates, and absolute deviations.
+    ```
+    """
+    if initial_capital < 0 or lambda_rate <= 0 or claim_mean <= 0 or safety_loading <= 0:
+        raise ValueError("Invalid parameters for benchmark generation.")
+
+    # Premium income rate c = (1 + theta) * lambda * expected_claim
+    premium_rate = (1.0 + safety_loading) * lambda_rate * claim_mean
+
+    # Classical Cramér-Lundberg adjustment coefficient approximation (Lundberg's exponent R)
+    # Simplified illustrative benchmark mapping for comparative analysis
+    # psi_classical approx exp(-R * U_0)
+    r_adj = (2.0 * safety_loading) / (claim_mean * (1.0 + safety_loading))
+    classical_est = np.array([np.exp(-r_adj * (initial_capital + t * 10.0)) for t in range(horizon_periods)], dtype=np.float64)
+    classical_est = np.clip(classical_est, 0.0, 1.0)
+
+    # De Finetti discrete game ruin approximation over binomial step equivalents
+    p_equivalent = lambda_rate / (lambda_rate + premium_rate / claim_mean)
+    de_finetti_est = np.array([
+        np.clip(1.0 - ((initial_capital + t * 5.0) / (claim_mean * (horizon_periods + t + 1))), 0.0, 1.0)
+        for t in range(horizon_periods)
+    ], dtype=np.float64)
+
+    deviations = compare_classical_de_finetti(classical_est, de_finetti_est)
+
+    return {
+        "classical_ruin": classical_est,
+        "de_finetti_ruin": de_finetti_est,
+        "absolute_deviations": deviations,
+    }
