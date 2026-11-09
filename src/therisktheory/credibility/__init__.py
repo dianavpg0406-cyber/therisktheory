@@ -10,4 +10,5 @@ from .bayesian import (
 __all__ = [
     "bayesian_credibility_premium",
     "posterior_predictive_mean",
-]"""Actuarial credibility theory and related models."""
+]
+]
