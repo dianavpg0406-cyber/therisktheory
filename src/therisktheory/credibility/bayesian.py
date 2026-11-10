@@ -1,87 +1,108 @@
-"""Bayesian credibility models and actuarial premium estimation.
+"""Risk retention, division, and inflation adjustment models in actuarial science."""
 
-This module implements exact Bayesian credibility formulas using conjugate priors
-(specifically the Poisson-Gamma model for claim frequencies) following actuarial theory principles.
-"""
 from __future__ import annotations
-import numpy as np
+
 from typing import Union
-from numpy.typing import ArrayLike, NDArray
+import numpy as np
+import numpy.typing as npt
 
-def bayesian_credibility_premium(
-    alpha_prior: float,
-    beta_prior: float,
-    sample_sums: ArrayLike,
-    sample_sizes: ArrayLike,
-) -> float | NDArray[np.float64]:
-    """Calculate the exact Bayesian credibility premium using a Gamma-Poisson conjugate model.
+NUMERIC_KINDS = {"i", "u", "f"}
 
-    Assuming a Gamma prior for the risk parameter lambda with shape parameter alpha
-    and rate parameter beta (where beta acts as the scale denominator in exposure),
-    and Poisson-distributed claims per exposure unit, the posterior distribution is
-    also Gamma with updated parameters.
 
-    Args:
-        alpha_prior (float): Prior shape parameter (alpha > 0).
-        beta_prior (float): Prior rate parameter (beta > 0).
-        sample_sums (ArrayLike): Sum of observed claims or counts across exposures (must be >= 0 and finite).
-        sample_sizes (ArrayLike): Exposure units or number of periods observed (must be > 0 and finite).
-
-    Returns:
-        float | NDArray[np.float64]: The posterior expected claim rate (Bayesian premium per unit exposure).
-
-    Raises:
-        ValueError: If parameters are non-positive, non-finite, or if sample sizes/claims violate domain rules.
-        TypeError: If inputs cannot be converted to real numeric arrays.
-    """
-    if not isinstance(alpha_prior, (int, float, np.number)) or not isinstance(beta_prior, (int, float, np.number)):
-        raise TypeError("Prior parameters alpha and beta must be numeric.")
-    
-    if alpha_prior <= 0 or beta_prior <= 0 or not np.isfinite(alpha_prior) or not np.isfinite(beta_prior):
-        raise ValueError("Prior parameters alpha and beta must be strictly positive and finite.")
-
+def _validate_numeric_array(value: Union[float, int, npt.ArrayLike], name: str) -> npt.NDArray[np.float64]:
+    """Validate that input is a finite, non-negative numeric value or array."""
     try:
-        sums_arr = np.asarray(sample_sums, dtype=np.float64)
-        sizes_arr = np.asarray(sample_sizes, dtype=np.float64)
-    except (ValueError, TypeError) as e:
-        raise TypeError("Sample sums and sizes must be convertible to real numeric arrays.") from e
+        array = np.asarray(value)
+    except (ValueError, TypeError) as error:
+        raise TypeError(f"{name} must be a real number or array") from error
 
-    if not np.all(np.isfinite(sums_arr)) or not np.all(np.isfinite(sizes_arr)):
-        raise ValueError("Sample sums and exposure sizes must contain only finite real numbers.")
+    if array.dtype.kind not in NUMERIC_KINDS:
+        raise TypeError(f"{name} must be a numeric type, got dtype {array.dtype}")
 
-    if np.any(sums_arr < 0):
-        raise ValueError("Observed claim counts / sample sums cannot be negative.")
+    array = array.astype(np.float64, copy=False)
+    if not np.all(np.isfinite(array)):
+        raise ValueError(f"{name} must be finite (no NaN or infinity allowed)")
+    if np.any(array < 0):
+        raise ValueError(f"{name} must be non-negative")
+    return array
 
-    if np.any(sizes_arr <= 0):
-        raise ValueError("Sample sizes / exposure units must be strictly positive.")
 
-    # Posterior parameters for Gamma-Poisson conjugacy:
-    # alpha_post = alpha_prior + sum(claims)
-    # beta_post = beta_prior + sum(exposures)
-    alpha_post = alpha_prior + sums_arr
-    beta_post = beta_prior + sizes_arr
+def _check_finite_result(result: npt.NDArray[np.float64], name: str) -> npt.NDArray[np.float64]:
+    """Raise OverflowError if a computed result exceeds float64 range."""
+    if not np.all(np.isfinite(result)):
+        raise OverflowError(f"{name} overflowed: the result exceeds the float64 range")
+    return result
 
-    result = alpha_post / beta_post
-    return result if isinstance(sample_sums, (int, float, np.number)) and isinstance(sample_sizes, (int, float, np.number)) else np.asarray(result, dtype=np.float64)
 
-def posterior_predictive_mean(
-    alpha_prior: float,
-    beta_prior: float,
-    sample_sums: ArrayLike,
-    sample_sizes: ArrayLike,
-) -> float | NDArray[np.float64]:
-    """Calculate the posterior predictive mean for future observations in a Gamma-Poisson model.
+def retained_loss(loss: Union[float, int, npt.ArrayLike], retention_limit: float) -> npt.NDArray[np.float64]:
+    """Calculate the retained loss by an insurer given a retention limit."""
+    loss_arr = _validate_numeric_array(loss, "loss")
+    limit_arr = _validate_numeric_array(retention_limit, "retention_limit")
 
-    Under the Gamma-Poisson conjugate model, the posterior predictive mean per unit exposure
-    equals the posterior expectation of the parameter lambda.
+    with np.errstate(over="raise", invalid="raise"):
+        try:
+            result = np.minimum(loss_arr, limit_arr)
+        except FloatingPointError as e:
+            raise OverflowError("Numerical overflow in retained_loss") from e
+    return _check_finite_result(result, "retained_loss")
 
-    Args:
-        alpha_prior (float): Prior shape parameter (alpha > 0).
-        beta_prior (float): Prior rate parameter (beta > 0).
-        sample_sums (ArrayLike): Sum of observed claims.
-        sample_sizes (ArrayLike): Exposure units observed.
 
-    Returns:
-        float | NDArray[np.float64]: The posterior predictive mean per exposure unit.
-    """
-    return bayesian_credibility_premium(alpha_prior, beta_prior, sample_sums, sample_sizes)
+def retention_capacity(surplus: float, maximum_retention_ratio: float) -> float | npt.NDArray[np.float64]:
+    """Determine the financial retention capacity based on insurer surplus."""
+    surplus_arr = _validate_numeric_array(surplus, "surplus")
+    ratio_arr = _validate_numeric_array(maximum_retention_ratio, "maximum_retention_ratio")
+    if np.any(ratio_arr > 1.0):
+        raise ValueError("maximum_retention_ratio must be between 0.0 and 1.0")
+
+    with np.errstate(over="raise", invalid="raise"):
+        try:
+            result = surplus_arr * ratio_arr
+        except FloatingPointError as e:
+            raise OverflowError("Numerical overflow in retention_capacity") from e
+    return _check_finite_result(result, "retention_capacity")
+
+
+def inflate_losses(
+    loss: Union[float, int, npt.ArrayLike],
+    inflation_rate: float,
+    periods: int = 1,
+) -> npt.NDArray[np.float64]:
+    """Project the impact of inflation on risk losses over time."""
+    loss_arr = _validate_numeric_array(loss, "loss")
+    if not isinstance(periods, (int, np.integer)) or periods < 0:
+        raise TypeError("periods must be a non-negative integer")
+    if inflation_rate < -1.0:
+        raise ValueError("inflation_rate cannot be less than -1.0 (-100%)")
+
+    with np.errstate(over="raise", invalid="raise"):
+        try:
+            factor = (1.0 + inflation_rate) ** periods
+            result = loss_arr * factor
+        except FloatingPointError as e:
+            raise OverflowError("Numerical overflow in inflate_losses") from e
+    return _check_finite_result(result, "inflate_losses")
+
+
+def deflate_losses(
+    inflated_loss: Union[float, int, npt.ArrayLike],
+    inflation_rate: float,
+    periods: int = 1,
+) -> npt.NDArray[np.float64]:
+    """Discount the effect of inflation to bring losses back to present value."""
+    loss_arr = _validate_numeric_array(inflated_loss, "inflated_loss")
+    if not isinstance(periods, (int, np.integer)) or periods < 0:
+        raise TypeError("periods must be a non-negative integer")
+    if inflation_rate < -1.0:
+        raise ValueError("inflation_rate cannot be less than -1.0 (-100%)")
+    if inflation_rate == -1.0 and periods > 0:
+        raise ValueError("Division by zero: inflation_rate of -1.0 with positive periods is undefined for deflation.")
+
+    with np.errstate(over="raise", divide="raise", invalid="raise"):
+        try:
+            factor = (1.0 + inflation_rate) ** periods
+            if factor == 0.0:
+                raise ValueError("Division by zero in deflation factor.")
+            result = loss_arr / factor
+        except (FloatingPointError, ZeroDivisionError) as e:
+            raise ValueError("Division by zero or numerical error in deflate_losses") from e
+    return _check_finite_result(result, "deflate_losses")
