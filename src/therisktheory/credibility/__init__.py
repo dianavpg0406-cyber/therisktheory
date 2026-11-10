@@ -1,7 +1,4 @@
-"""
-Bayesian credibility subpackage for TheRiskTheory.
-"""
-
+"""Bayesian credibility subpackage for TheRiskTheory."""
 from .bayesian import (
     bayesian_credibility_premium,
     posterior_predictive_mean,
@@ -10,5 +7,4 @@ from .bayesian import (
 __all__ = [
     "bayesian_credibility_premium",
     "posterior_predictive_mean",
-]
 ]
