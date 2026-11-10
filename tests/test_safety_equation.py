@@ -1,8 +1,5 @@
-"""
-Unit tests and mathematical validation tests for collective risk safety equation module,
-integrating Garcia's severity models and Bracamonte's frequency/process components.
-"""
-
+"""Unit tests and mathematical validation tests for collective risk safety equation module,
+integrating Adrián García's severity models (PR #10)[cite: 1]."""
 import pytest
 import numpy as np
 from therisktheory.collective_risk import (
@@ -10,24 +7,18 @@ from therisktheory.collective_risk import (
     lundberg_equation,
     full_retention_adjustment,
 )
-from therisktheory.frequency.processes import claim_intensity
-from therisktheory.severity_aggregation.pareto import pareto_mean, pareto_second_moment
+from therisktheory.severity_aggregate import lognormal_severity_moments
 
-
-def test_adjustment_coefficient_with_garcia_pareto():
-    """Test adjustment coefficient calculation using Pareto severity moments from Garcia's module."""
-    alpha_param = 3.0
-    theta_param = 2.0
-    safety_loading = 0.25
-
-    mean_x = pareto_mean(alpha_param, theta_param)
-    second_moment_x = pareto_second_moment(alpha_param, theta_param)
-
+def test_adjustment_coefficient_with_garcia_lognormal():
+    """Test full retention approximation using García's lognormal severity moments from PR #10[cite: 1]."""
+    moments = lognormal_severity_moments(mu=1.0, sigma=0.5)
+    mean_x = float(moments["mean"])
+    second_moment_x = float(moments["second_raw_moment"])
+    safety_loading = 0.2
     approx_r = full_retention_adjustment((mean_x, second_moment_x), safety_loading)
     assert approx_r > 0.0
 
-
-def test_adjustment_coefficient_exponential_analytical():
+def test_adjustment_coefficient_exponential_analytical() -> None:
     """Test adjustment coefficient for Exponential severity against exact analytical solution."""
     mu = 2.0
     mean_x = 1.0 / mu
@@ -40,11 +31,9 @@ def test_adjustment_coefficient_exponential_analytical():
 
     expected_r = (safety_loading * mu) / (1.0 + safety_loading)
     computed_r = adjustment_coefficient(mgf_exp, mean_x, safety_loading, r_max=mu - 1e-3)
-
     assert np.isclose(computed_r, expected_r, rtol=1e-5)
 
-
-def test_lundberg_equation_at_root():
+def test_lundberg_equation_at_root() -> None:
     """Verify that Lundberg equation residual equals zero at computed root."""
     mu = 1.0
     mean_x = 1.0
@@ -55,5 +44,4 @@ def test_lundberg_equation_at_root():
 
     r_sol = adjustment_coefficient(mgf_exp, mean_x, safety_loading, r_max=0.99)
     residual = lundberg_equation(r_sol, mgf_exp, mean_x, safety_loading)
-
     assert np.isclose(residual, 0.0, atol=1e-7)
