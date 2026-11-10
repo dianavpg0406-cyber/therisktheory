@@ -1,8 +1,4 @@
-"""
-Collective risk theory, Lundberg fundamental equation, and safety equation subpackage for TheRiskTheory.
-Integrated with frequency (Bracamonte) and severity (Garcia) modules.
-"""
-
+"""Collective risk theory, Lundberg fundamental equation, and safety equation subpackage for TheRiskTheory."""
 from .safety_equation import (
     adjustment_coefficient,
     lundberg_equation,
