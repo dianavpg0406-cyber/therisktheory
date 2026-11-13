@@ -6,14 +6,26 @@ Do not upload copyrighted books or papers unless redistribution is permitted.
 
 Prefer bibliographic metadata and stable links/DOIs where available.
 
-### Bühlmann, H. (1970)
-Bühlmann, H. (1970). *Mathematical Methods in Risk Theory*. Springer.
-| Used for | Location |
-|---|---|
-| Retention limits and risk division | Chapter 4[cite: 3] |
+### Beard, R., Pentikäinen, T., and Pesonen, E. (1984)
 
-### Panjer, H. and Willmot, G. (1992)
-Panjer, H. and Willmot, G. (1992). *Insurance Risk Models*. Society of Actuaries.
+Beard, R., Pentikäinen, T., and Pesonen, E. (1984). *Risk Theory*. Chapman and Hall.
+
 | Used for | Location |
 |---|---|
-| Inflation impact and deflation adjustment on losses | Chapter 2[cite: 3] |
+| Safety equation and Lundberg adjustment coefficient | Collective risk theory |
+
+### Bühlmann, H. (1970)
+
+Bühlmann, H. (1970). *Mathematical Methods in Risk Theory*. Springer.
+
+| Used for | Location |
+|---|---|
+| Lundberg fundamental equation and ruin bounds | Chapter 6 |
+
+### Gerber, H. (1979)
+
+Gerber, H. (1979). *An Introduction to Mathematical Risk Theory*. Huebner Foundation.
+
+| Used for | Location |
+|---|---|
+| Adjustment coefficient existence and full retention approximation | Chapter 8 |
